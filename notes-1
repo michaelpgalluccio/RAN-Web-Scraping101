@@ -1,0 +1,164 @@
+Web Fundamentals:
+		- HyperText Transfer Protocol uses a client/server model.
+				- A HTTP client (like a browser or Python program) opens a connection and sends a message "I want to see this page:/product".
+				- The server responds and closes the connection.
+				- It is a stateless protocol because each transaction is independent. FTP is stateful because it maintains the connection.
+				- Example of what an HTTP request looks like:
+						1 GET /product/ HTTP/1.1
+						2 Host: example.com
+						3 Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8
+						4 Accept-Encoding: gzip, deflate, sdch, br
+						5 Connection: keep-alive
+						6 User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 12_3_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.127 Safari/537.36
+				- Line (1) is the HTTP method (in this case GET) that we want to fetch data. There are several available.
+						- Also the path of the file/directory/object that we would like to interact with. In this case it is "product".
+						- And the version of the HTTP protocol (here we will focus on HTTP 1).
+				- The rest are the header fields:
+						- Host: this header indicates the hostname for  which you send the request.
+								- This header is for name-based virtual hosting which is the standard in today's hosting world.
+						-	User-Agent: This contains info about the client originating he requesting including the OS.
+								- In this case is it Chrome on macMOS.
+								- Important because it will be used for statistics or to provent violation from bots.
+								- The headers can be changed since they are sent by the clients (done in a process called "Header Spoofing").
+								- This makes scrapers look like regular web browsers.
+						- Accept: This is a list of MIM types which the client will accept a response from the server.
+								- There are several content types and sub-types: text/plain, text/html, image/jpeg, application/json
+						- Cookie: The header field contains a list of name-value pairs. Coookies are how websites store data on your machine.
+								- Standard Cookies = Up to a certain date of expiration
+								- Session Cookies = Only during the session
+								- Used for authenticating information, user preferences, or nefarious stuff.
+								- They are vital to browsers for mentioned authentication. It is usually the token for a successful login to an account.
+						- Referer: Contails the URL from which the actual URL has been requested.
+								- Websites use the request and change their behavior based on where the user came from.
+								- Sometimes will need to be spoofed to get the content we actually want.
+				- The server will respond with:
+						1 HTTP/1.1 200 OK
+						2 Server: nginx/1.4.6 (Ubuntu)
+						3 Content-Type: text/html; charset=utf-8
+						4 Content-Length: 3352
+						5 
+						6 <!DOCTYPE html>
+						7 <html>
+						8 <head>
+						9 <meta charset="utf-8" /> ...[HTML CODE]
+				- On Line (1) we get a new piece of info - 200 OK, this means the request was properly handled.
+							- The full list of codes is available on Wikipedia.
+				- The rest of response headers (similar to  the request headers above).
+				- After the blank line, you get the actual data sent with the response.
+				- Once the browser receives the response:
+						- it parses the HTML code
+						- fetch all embedded assets (JS and CSS files, images, videos) and 
+						- render it in the main window.
+						
+Manually Opening a Socket and Sending the HTTP request.
+		- The most basic way to perform an HTTP reques is using a TCP socket and manually sending the request.
+					import socket
+
+					HOST = 'www.google.com'  # Server hostname or IP address
+					PORT = 80                # The standard port for HTTP is 80, for HTTPS it is 443
+
+					client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+					server_address = (HOST, PORT)
+					client_socket.connect(server_address)
+
+					request_header = b'GET / HTTP/1.0\r\nHost: www.google.com\r\n\r\n'
+					client_socket.sendall(request_header)
+
+					response = ''
+					while True:
+							recv = client_socket.recv(1024)
+							if not recv:
+									break
+							response += str(recv)
+
+					print(response)
+					client_socket.close()  
+			- That is evoke the HTTP response, the most basic way to extract data from it is to use regular expressions.
+					- Also called regex.
+					- Used for handling, parsing, and validating arbitrary text.
+					- Essentially a string that defines a search pattern using standard syntax.
+							- For instance, identifying all phone numbers fitting the format ###-###-####
+					- Combined with classic search and replace, the regular expressions allow you to perform string substitution on dynamic strings.
+							- For instance, taking upper-case tags in a poorly formatted HTML document and changing them to lower-case.
+					- There are many different ways to parse HTML such as with Python modules like XPath and CSS selectors.
+					- In the real world, there is a lot of content between <p> elements.
+							- If you want to be able to find specific stuff inside of it, you need regular expressions.
+							- They're useful when you have this kind of data.
+									<p>Price : 19.99$</p>
+							- We could select this text node with an XPath expression and use this regex to extract the price.
+									^Price\s*:\s*(\d+\.\d{2})\
+							- If you only have the HTML then its a bit trickier, you can specify in your expression the tag as well.
+									- Then use a capturing group for the text.
+											import re
+
+											html_content = '<p>Price : 19.99$</p>'
+
+											m = re.match('<p>(.+)<\/p>', html_content)
+											if m:
+												print(m.group(1))
+							- As you can see, manually sending the HTTP request with a socket and parsing with regex can be done but its complicated.
+							- Higher level API can make this task easier.
+urllib3 & LXML
+		- urllib3 is a high level package that allows you to do pretty much whatever you want with an HTTP request.
+		- We essentially do what we did in the previous section but in way fewer lines.
+					import urllib3
+					http = urllib3.PoolManager()
+					r = http.request('GET', 'http://www.google.com')
+					print(r.data)
+		- With that you can also do other things like adding HTTP headers, using a proxy, POSTing forms.
+		- To set some headers and use a proxy, we would only have to do the following:
+					import urllib3
+					user_agent_header = urllib3.make_headers(user_agent="<USER AGENT>")
+					pool = urllib3.ProxyManager(f'<PROXY IP>', headers=user_agent_header)
+					r = pool.request('GET', 'https://www.google.com/')
+		- There are some things that urllib3 cannot handle easily.
+				- If we want to add a cookie, we need to manually create the corresponding headers and add it to the request.
+		- There are some things that urllib3 can do that requests cannot.
+				- Creating and management of a pool and proxy pool
+				- Retry strategy.
+		- Next to parse, you need to use LXML and XPath expressions
+				- XPath is a technology that uses path expressions to select nodes and node-sets in an XML document (or HTML document).
+				- If you are familiar wityh the concept of CSS selectors, you can imagine it is similar.
+				-	It is a W3C standard since 1999.
+				- It isa not a programming language in itself but it allows for writing expressions that can directly access a specific node or none-set.
+				- Does so without having to go through an enitre HTML or XML tree.
+				- To use it to extract data from an HTML document with XPath. We need three things:
+						- an HTML document.
+						- some XPath expressions.
+						- an XPath egnine that will run those expressions.
+				- We start with the HTML we got from urllib3.  Now we would like to extract all of the links from the google homepage.
+				- We use a simple XPath expression //a and will use LXML to run it.
+						- LXML is a fast and easy to use XML and HTML processing library that supports XPath
+						- Need to install it with pip install lxml
+				- Below is the code to pull the links:
+						from lxml import html
+
+						# We reuse the response from urllib3
+						data_string = r.data.decode('utf-8', errors='ignore')
+
+						# We instantiate a tree object from the HTML
+						tree = html.fromstring(data_string)
+
+						# We run the XPath against this HTML
+						# This returns an array of element
+						links = tree.xpath('//a')
+
+						for link in links:
+								# For each element we can easily get back the URL
+								print(link.get('href'))
+				- The output should look like:
+						https://books.google.fr/bkshp?hl=fr&tab=wp
+						https://www.google.fr/shopping?hl=fr&source=og&tab=wf
+						https://www.blogger.com/?tab=wj
+						https://photos.google.com/?tab=wq&pageId=none
+						http://video.google.fr/?hl=fr&tab=wv
+						https://docs.google.com/document/?usp=docs_alc
+						...
+						https://www.google.fr/intl/fr/about/products?tab=wh
+				- We could have used //a/@href to point strain to the href attribute.
+				- XPath and LXML have pretty good documentation.
+				- XPath expressions like regex are powerful and can quickly extract information.
+						- Just like regex, it could get messy, hard to read, and hard to maintain.
+						
+					
+						
